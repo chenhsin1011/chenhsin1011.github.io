@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pandemic Management Prototype</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Heatmap Plugin -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <style>
+    #map, #heatmap { height: 300px; }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans">
+  <!-- Main Content -->
+  <div id="main-content" class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold text-center mb-6">Pandemic Management Platform</h1>
+
+    <!-- Mask Map Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Mask Availability Map</h2>
+      <div id="map" class="rounded-lg shadow"></div>
+      <p class="text-sm text-gray-600 mt-2">Mock map showing nearby pharmacies with mask stock.</p>
+    </section>
+
+    <!-- Confirmed Case Heat Map Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Confirmed Case Heat Map</h2>
+      <div id="heatmap" class="rounded-lg shadow"></div>
+      <p class="text-sm text-gray-600 mt-2">Mock heat map showing case density in the area.</p>
+    </section>
+
+    <!-- Personal Health Tracking Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Personal Health Tracking</h2>
+      <div class="bg-white p-4 rounded-lg shadow">
+        <div class="mb-4">
+          <label for="vaccines" class="block text-sm font-medium">Number of Vaccine Doses:</label>
+          <input type="number" id="vaccines" min="0" class="mt-1 p-2 border rounded w-full" placeholder="e.g., 2">
+        </div>
+        <div class="mb-4">
+          <label for="disease" class="block text-sm font-medium">Times Contracted Disease:</label>
+          <input type="number" id="disease" min="0" class="mt-1 p-2 border rounded w-full" placeholder="e.g., 0">
+        </div>
+        <button onclick="saveHealthData()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
+        <p id="health-status" class="mt-4 text-gray-700"></p>
+      </div>
+    </section>
+
+    <!-- Daily Notifications Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Daily Reminders</h2>
+      <button onclick="showReminder()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Get Daily Reminder</button>
+      <p id="reminder-text" class="mt-4 text-gray-700"></p>
+    </section>
+
+    <!-- Online Shopping Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Online Shopping</h2>
+      <button onclick="showShoppingSubpage()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">View Products</button>
+    </section>
+
+    <!-- Coupon Incentives Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Coupon Incentives</h2>
+      <div id="coupon-container" class="grid gap-4">
+        <!-- Coupons will be populated by JS -->
+      </div>
+    </section>
+
+    <!-- Emergency Contacts Section -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Emergency Contacts</h2>
+      <div id="contacts-container" class="bg-white p-4 rounded-lg shadow">
+        <!-- Contacts will be populated by JS -->
+      </div>
+    </section>
+
+    <!-- Pandemic News Section -->
+    <section>
+      <h2 class="text-2xl font-semibold mb-4">Pandemic News</h2>
+      <div id="news-container" class="grid gap-4">
+        <!-- News items will be populated by JS -->
+      </div>
+    </section>
+  </div>
+
+  <!-- News Subpage -->
+  <div id="news-subpage" class="hidden container mx-auto p-4">
+    <button onclick="showMainContent()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mb-4">Back to Main Page</button>
+    <h2 id="news-title" class="text-2xl font-semibold mb-4"></h2>
+    <p id="news-content" class="text-gray-700"></p>
+  </div>
+
+  <!-- Shopping Subpage -->
+  <div id="shopping-subpage" class="hidden container mx-auto p-4">
+    <button onclick="showMainContent()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mb-4">Back to Main Page</button>
+    <h2 class="text-2xl font-semibold mb-4">Available Products</h2>
+    <div id="shopping-container" class="grid gap-4">
+      <!-- Products will be populated by JS -->
+    </div>
+  </div>
+
+  <script>
+    // Mock data for pharmacies (latitude, longitude, mask stock)
+    const pharmacies = [
+      { name: "City Pharmacy", lat: 40.7128, lng: -74.0060, masks: 150 },
+      { name: "Health Hub", lat: 40.7200, lng: -74.0100, masks: 80 },
+      { name: "Care Store", lat: 40.7050, lng: -74.0000, masks: 200 }
+    ];
+
+    // Mock data for confirmed cases (latitude, longitude, intensity)
+    const caseData = [
+      [40.7128, -74.0060, 0.8],
+      [40.7200, -74.0100, 0.5],
+      [40.7050, -74.0000, 0.3]
+    ];
+
+    // Mock news data with full content for subpage
+    const news = [
+      {
+        title: "New Vaccine Rollout Announced",
+        summary: "Health authorities plan to distribute boosters next month.",
+        fullContent: "Health authorities have announced a new vaccine rollout plan, set to begin next month. The initiative aims to distribute booster shots to vulnerable populations and frontline workers. The government has partnered with local clinics to ensure widespread access, with plans to expand to pharmacies by the end of the quarter. Officials urge the public to stay updated on vaccination schedules."
+      },
+      {
+        title: "Mask Mandate Updates",
+        summary: "Local government updates mask policies for indoor spaces.",
+        fullContent: "The local government has revised its mask mandate, requiring masks in all indoor public spaces effective immediately. This follows a recent uptick in cases in urban areas. Exceptions are made for children under five and those with medical exemptions. Compliance will be monitored by health officials, and businesses are encouraged to enforce the policy."
+      },
+      {
+        title: "Pandemic Trends",
+        summary: "Cases decline in urban areas, officials urge caution.",
+        fullContent: "Recent data shows a decline in pandemic cases in urban centers, a positive sign for public health efforts. However, officials warn that vigilance is still necessary, as new variants could emerge. Recommendations include maintaining mask usage, regular handwashing, and staying up-to-date with vaccinations. Community testing sites remain open to support early detection."
+      }
+    ];
+
+    // Mock product data for online shopping
+    const products = [
+      { name: "N95 Mask (Pack of 10)", description: "High-quality respiratory protection.", price: 19.99 },
+      { name: "Hand Sanitizer (500ml)", description: "70% alcohol, kills 99.9% germs.", price: 7.99 },
+      { name: "Disinfectant Wipes (80ct)", description: "For surfaces, hospital-grade.", price: 5.49 }
+    ];
+
+    // Mock coupon data
+    const coupons = [
+      { title: "10% Off Masks", code: "MASK10", description: "Use at participating pharmacies." },
+      { title: "$5 Off Delivery", code: "DELIVER5", description: "For first-time delivery orders." }
+    ];
+
+    // Mock emergency contacts
+    const contacts = [
+      { name: "Local Health Department", phone: "123-456-7890" },
+      { name: "Emergency Hotline", phone: "800-555-1234" }
+    ];
+
+    // Mock daily reminders
+    const reminders = [
+      "Wash your hands frequently to stay safe!",
+      "Wear a mask in public spaces today.",
+      "Stay hydrated and maintain a healthy diet."
+    ];
+
+    // Initialize Mask Map
+    const map = L.map('map').setView([40.7128, -74.0060], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add pharmacy markers to map
+    pharmacies.forEach(pharmacy => {
+      L.marker([pharmacy.lat, pharmacy.lng])
+        .addTo(map)
+        .bindPopup(`<b>${pharmacy.name}</b><br>Masks in stock: ${pharmacy.masks}`);
+    });
+
+    // Initialize Heat Map
+    const heatMap = L.map('heatmap').setView([40.7128, -74.0060], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(heatMap);
+    L.heatLayer(caseData, { radius: 25 }).addTo(heatMap);
+
+    // Populate news section with clickable titles
+    const newsContainer = document.getElementById('news-container');
+    news.forEach((item, index) => {
+      const newsItem = document.createElement('div');
+      newsItem.className = 'bg-white p-4 rounded-lg shadow';
+      newsItem.innerHTML = `
+        <h3 class="text-lg font-medium"><a href="#" onclick="showNewsSubpage(${index}); return false;" class="text-blue-500 hover:underline">${item.title}</a></h3>
+        <p class="text-gray-600">${item.summary}</p>
+      `;
+      newsContainer.appendChild(newsItem);
+    });
+
+    // Populate shopping subpage (called once when subpage is first shown)
+    function populateShoppingSubpage() {
+      const shoppingContainer = document.getElementById('shopping-container');
+      if (shoppingContainer.children.length === 0) {
+        products.forEach(product => {
+          const productItem = document.createElement('div');
+          productItem.className = 'bg-white p-4 rounded-lg shadow';
+          productItem.innerHTML = `
+            <h3 class="text-lg font-medium">${product.name}</h3>
+            <p class="text-gray-600">${product.description}</p>
+            <p class="text-blue-500 font-bold">Price: $${product.price.toFixed(2)}</p>
+          `;
+          shoppingContainer.appendChild(productItem);
+        });
+      }
+    }
+
+    // Populate coupons section
+    const couponContainer = document.getElementById('coupon-container');
+    coupons.forEach(coupon => {
+      const couponItem = document.createElement('div');
+      couponItem.className = 'bg-white p-4 rounded-lg shadow';
+      couponItem.innerHTML = `<h3 class="text-lg font-medium">${coupon.title}</h3><p class="text-gray-600">${coupon.description}</p><p class="text-blue-500 font-bold">Code: ${coupon.code}</p>`;
+      couponContainer.appendChild(couponItem);
+    });
+
+    // Populate emergency contacts section
+    const contactsContainer = document.getElementById('contacts-container');
+    contacts.forEach(contact => {
+      const contactItem = document.createElement('div');
+      contactItem.className = 'mb-2';
+      contactItem.innerHTML = `<p><b>${contact.name}</b>: ${contact.phone}</p>`;
+      contactsContainer.appendChild(contactItem);
+    });
+
+    // Save and display health data
+    function saveHealthData() {
+      const vaccines = document.getElementById('vaccines').value;
+      const disease = document.getElementById('disease').value;
+      const status = document.getElementById('health-status');
+      if (vaccines === '' || disease === '') {
+        status.textContent = 'Please enter both fields.';
+        return;
+      }
+      status.textContent = `Health Status: ${vaccines} vaccine dose(s), contracted disease ${disease} time(s).`;
+    }
+
+    // Show random daily reminder
+    function showReminder() {
+      const reminderText = document.getElementById('reminder-text');
+      const randomIndex = Math.floor(Math.random() * reminders.length);
+      reminderText.textContent = reminders[randomIndex];
+    }
+
+    // Show news subpage
+    function showNewsSubpage(index) {
+      const mainContent = document.getElementById('main-content');
+      const newsSubpage = document.getElementById('news-subpage');
+      const shoppingSubpage = document.getElementById('shopping-subpage');
+      const newsTitle = document.getElementById('news-title');
+      const newsContent = document.getElementById('news-content');
+
+      mainContent.classList.add('hidden');
+      shoppingSubpage.classList.add('hidden');
+      newsSubpage.classList.remove('hidden');
+
+      newsTitle.textContent = news[index].title;
+      newsContent.textContent = news[index].fullContent;
+    }
+
+    // Show shopping subpage
+    function showShoppingSubpage() {
+      const mainContent = document.getElementById('main-content');
+      const newsSubpage = document.getElementById('news-subpage');
+      const shoppingSubpage = document.getElementById('shopping-subpage');
+
+      mainContent.classList.add('hidden');
+      newsSubpage.classList.add('hidden');
+      shoppingSubpage.classList.remove('hidden');
+
+      populateShoppingSubpage();
+    }
+
+    // Show main content
+    function showMainContent() {
+      const mainContent = document.getElementById('main-content');
+      const newsSubpage = document.getElementById('news-subpage');
+      const shoppingSubpage = document.getElementById('shopping-subpage');
+
+      mainContent.classList.remove('hidden');
+      newsSubpage.classList.add('hidden');
+      shoppingSubpage.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
